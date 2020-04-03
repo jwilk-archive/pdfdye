@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: MIT
 
 import argparse
+import re
 
 import pikepdf
 
@@ -17,11 +18,11 @@ def unparse_arg(arg):
 def unparse(args, op):
     return b' '.join(unparse_arg(arg) for arg in args) + b' ' + op.unparse()
 
-def mangle_pdf(pdf):
+def mangle_pdf(pdf, color):
     for page in pdf.pages:
-        mangle_page(pdf, page)
+        mangle_page(pdf, page, color)
 
-def mangle_page(pdf, page):
+def mangle_page(pdf, page, color):
     page.page_contents_coalesce()
     op_rg = pikepdf.Operator('rg')
     op_BT = pikepdf.Operator('BT')
@@ -32,7 +33,7 @@ def mangle_page(pdf, page):
     for args, op in pikepdf.parse_content_stream(page):
         if text_obj:
             if op in text_showing_ops:
-                stream += [unparse((0, 0, 1), op_rg)]
+                stream += [unparse(color, op_rg)]
             elif op == op_ET:
                 text_obj = False
         elif op == op_BT:
@@ -41,13 +42,22 @@ def mangle_page(pdf, page):
     stream = b'\n'.join(stream)
     page.Contents = pikepdf.Stream(pdf, stream)
 
+re_color = re.compile('^[#]?' + '([0-9a-f]{2})' * 3 + '$')
+def parse_color(s):
+    match = re_color.match(s)
+    if match is None:
+        raise TypeError
+    return tuple(int(x, 16) / 0xFF for x in match.groups())
+parse_color.__name__ = 'color'
+
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument('-c', '--color', type=parse_color, metavar='RRGGBB', required=True)
     ap.add_argument('input', metavar='INPUT-FILE')
     ap.add_argument('output', metavar='OUTPUT-FILE')
     options = ap.parse_args()
     pdf = pikepdf.open(options.input)
-    mangle_pdf(pdf)
+    mangle_pdf(pdf, options.color)
     pdf.save(options.output)
 
 if __name__ == '__main__':
