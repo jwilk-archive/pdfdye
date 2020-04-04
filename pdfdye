@@ -9,15 +9,6 @@ import re
 
 import pikepdf
 
-def unparse_arg(arg):
-    if isinstance(arg, pikepdf.objects.Object):
-        return arg.unparse()
-    else:
-        return str(arg).encode()
-
-def unparse(args, op):
-    return b' '.join(unparse_arg(arg) for arg in args) + b' ' + op.unparse()
-
 def mangle_pdf(pdf, color):
     for page in pdf.pages:
         mangle_page(pdf, page, color)
@@ -33,14 +24,14 @@ def mangle_page(pdf, page, color):
     for args, op in pikepdf.parse_content_stream(page):
         if text_obj:
             if op in text_showing_ops:
-                stream += [unparse(color, op_rg)]
+                stream += [(color, op_rg)]
             elif op == op_ET:
                 text_obj = False
         elif op == op_BT:
             text_obj = True
-        stream += [unparse(args, op)]
-    stream = b'\n'.join(stream)
-    page.Contents = pikepdf.Stream(pdf, stream)
+        stream += [(args, op)]
+    stream = pikepdf.unparse_content_stream(stream)
+    page.Contents = pdf.make_stream(stream)
 
 re_color = re.compile('^[#]?' + '([0-9a-f]{2})' * 3 + '$')
 def parse_color(s):
