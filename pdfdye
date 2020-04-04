@@ -33,7 +33,7 @@ def mangle_page(pdf, page, color):
     stream = pikepdf.unparse_content_stream(stream)
     page.Contents = pdf.make_stream(stream)
 
-re_color = re.compile('^[#]?' + '([0-9a-f]{2})' * 3 + '$')
+re_color = re.compile('^[#]?' + '([0-9a-fA-F]{2})' * 3 + '$')
 def parse_color(s):
     match = re_color.match(s)
     if match is None:
